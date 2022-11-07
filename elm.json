@@ -1,0 +1,17 @@
+{
+    "type": "package",
+    "name": "elektrica/elm-hct",
+    "summary": "A color system built using CAM16 hue and chroma, and L* from L*a*b*.",
+    "license": "MIT",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Hct"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0",
+        "elm-community/basics-extra": "4.1.0 <= v < 5.0.0",
+        "elm-community/list-extra": "8.5.2 <= v < 9.0.0"
+    },
+    "test-dependencies": {}
+}
