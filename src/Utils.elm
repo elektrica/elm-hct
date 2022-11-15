@@ -1,4 +1,4 @@
-module Utils exposing (Rgb, argbFromLinrgb, delinearized, linearized, lstarFromColor, sanitizeDegrees, signum, whitePointD65, yFromLstar)
+module Utils exposing (Rgb, Xyz, argbFromLinrgb, delinearized, linearized, lstarFromColor, sanitizeDegrees, signum, whitePointD65, yFromLstar)
 
 import Basics.Extra exposing (fractionalModBy)
 
@@ -10,7 +10,7 @@ type alias Rgb =
     }
 
 
-type alias XYZ =
+type alias Xyz =
     { x : Float
     , y : Float
     , z : Float
@@ -33,7 +33,7 @@ argbFromLinrgb { red, green, blue } =
     }
 
 
-xyzFromColor : Rgb -> XYZ
+xyzFromColor : Rgb -> Xyz
 xyzFromColor { red, green, blue } =
     let
         r : Float
@@ -80,9 +80,11 @@ linearized rgbComponent =
 delinearized : Float -> Float
 delinearized rgbComponent =
     let
+        normalized : Float
         normalized =
             rgbComponent / 100
 
+        delinearized_ : Float
         delinearized_ =
             if normalized <= 0.0031308 then
                 normalized * 12.92
@@ -93,7 +95,7 @@ delinearized rgbComponent =
     clamp 0 1 delinearized_
 
 
-whitePointD65 : XYZ
+whitePointD65 : Xyz
 whitePointD65 =
     { x = 95.047
     , y = 100
@@ -107,10 +109,6 @@ labF t =
         e : Float
         e =
             216 / 24389
-
-        kappa : Float
-        kappa =
-            24389 / 27
     in
     if t > e then
         t ^ (1 / 3)
@@ -122,12 +120,11 @@ labF t =
 labInvf : Float -> Float
 labInvf ft =
     let
+        e : Float
         e =
             216 / 24389
 
-        kappa =
-            24389 / 27
-
+        ft3 : Float
         ft3 =
             ft ^ 3
     in
@@ -136,6 +133,11 @@ labInvf ft =
 
     else
         (116 * ft - 16) / kappa
+
+
+kappa : Float
+kappa =
+    24389 / 27
 
 
 
@@ -157,6 +159,7 @@ signum num =
 sanitizeDegrees : Float -> Float
 sanitizeDegrees degrees =
     let
+        sanitized : Float
         sanitized =
             fractionalModBy 360 degrees
     in

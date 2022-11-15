@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "review": "elm-review",
+    "postinstall": "elm-tooling install"
+  },
+  "devDependencies": {
+    "elm-review": "^2.8.2",
+    "elm-tooling": "^1.10.0"
+  }
+}

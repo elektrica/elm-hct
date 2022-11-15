@@ -34,20 +34,17 @@ toRgb :
         }
 toRgb { hue, chroma, tone } =
     let
+        lstar : Float
         lstar =
             tone
 
-        hueDegrees =
-            sanitizeDegrees hue
-
-        hueRadians =
-            hueDegrees / 180 * pi
-
+        y : Float
         y =
             yFromLstar lstar
     in
     if chroma < 0.0001 || lstar < 0.0001 || lstar > 99.9999 then
         let
+            component : Float
             component =
                 delinearized y
         in
@@ -58,6 +55,15 @@ toRgb { hue, chroma, tone } =
         }
 
     else
+        let
+            hueRadians : Float
+            hueRadians =
+                hueDegrees / 180 * pi
+
+            hueDegrees : Float
+            hueDegrees =
+                sanitizeDegrees hue
+        in
         case findResultByJ hueRadians chroma y of
             Just exactAnswer ->
                 exactAnswer
@@ -120,9 +126,11 @@ sanitizeRadians angle =
 trueDelinearized : Float -> Float
 trueDelinearized rgbComponent =
     let
+        normalized : Float
         normalized =
             rgbComponent / 100
 
+        delinearized_ : Float
         delinearized_ =
             if normalized <= 0.0031308 then
                 normalized * 12.92
@@ -136,6 +144,7 @@ trueDelinearized rgbComponent =
 chromaticAdaptation : Float -> Float
 chromaticAdaptation component =
     let
+        af : Float
         af =
             abs component ^ 0.42
     in
@@ -145,6 +154,7 @@ chromaticAdaptation component =
 hueOf : Rgb -> Float
 hueOf linrgb =
     let
+        scaledDiscount : { r : Float, g : Float, b : Float }
         scaledDiscount =
             { r =
                 (linrgb.red * 0.001200833568784504)
@@ -160,20 +170,25 @@ hueOf linrgb =
                     + (linrgb.blue * 0.0032979401770712076)
             }
 
+        rA : Float
         rA =
             chromaticAdaptation scaledDiscount.r
 
+        gA : Float
         gA =
             chromaticAdaptation scaledDiscount.g
 
+        bA : Float
         bA =
             chromaticAdaptation scaledDiscount.b
 
         -- redness-greenness
+        a : Float
         a =
             (11 * rA + -12 * gA + bA) / 11
 
         -- yellowness-blueness
+        b : Float
         b =
             (rA + gA - 2 * bA) / 9
     in
@@ -183,9 +198,11 @@ hueOf linrgb =
 areInCyclicOrder : Float -> Float -> Float -> Bool
 areInCyclicOrder a b c =
     let
+        deltaAB : Float
         deltaAB =
             sanitizeRadians (b - a)
 
+        deltaAC : Float
         deltaAC =
             sanitizeRadians (c - a)
     in
@@ -208,6 +225,7 @@ lerpPoint source t target =
 setCoordinate : Rgb -> Float -> Rgb -> (Rgb -> Float) -> Rgb
 setCoordinate source coordinate target axis =
     let
+        t : Float
         t =
             intercept (axis source) coordinate (axis target)
     in
@@ -222,15 +240,19 @@ isBounded x =
 edgePoints : Float -> List Rgb
 edgePoints y =
     let
+        kR : Float
         kR =
             yFromLinR
 
+        kG : Float
         kG =
             yFromLinG
 
+        kB : Float
         kB =
             yFromLinB
 
+        points : List ( Float, Float, Float )
         points =
             [ ( y / kR, 0, 0 )
             , ( (y - 100 * kB) / kR, 0, 100 )
@@ -277,12 +299,15 @@ bisectToSegment y targetHue =
                 case leftRight of
                     Just ( left, right ) ->
                         let
+                            leftHue : Float
                             leftHue =
                                 hueOf left
 
+                            midHue : Float
                             midHue =
                                 hueOf mid
 
+                            rightHue : Float
                             rightHue =
                                 hueOf right
                         in
@@ -327,6 +352,7 @@ bisectToLimit y targetHue =
         ( initLeft, initRight ) =
             bisectToSegment y targetHue
 
+        initLeftHue : Float
         initLeftHue =
             hueOf initLeft
 
@@ -343,42 +369,47 @@ bisectToLimit y targetHue =
             -> ( Rgb, Float, Rgb )
         loop axis i { left, leftHue, lPlane, right, rPlane } =
             if i < 8 then
-                let
-                    mPlane =
-                        floor ((toFloat lPlane + toFloat rPlane) / 2)
-
-                    midPlaneCoordinate =
-                        List.Extra.getAt mPlane criticalPlanes
-                            |> Maybe.withDefault 0
-
-                    mid =
-                        setCoordinate left midPlaneCoordinate right axis
-
-                    midHue =
-                        hueOf mid
-                in
                 if abs rPlane - lPlane <= 1 then
                     ( left, leftHue, right )
 
-                else if areInCyclicOrder leftHue targetHue midHue then
-                    loop axis
-                        (i + 1)
-                        { left = left
-                        , leftHue = leftHue
-                        , lPlane = lPlane
-                        , right = mid
-                        , rPlane = mPlane
-                        }
-
                 else
-                    loop axis
-                        (i + 1)
-                        { left = mid
-                        , leftHue = midHue
-                        , lPlane = mPlane
-                        , right = right
-                        , rPlane = rPlane
-                        }
+                    let
+                        midHue : Float
+                        midHue =
+                            hueOf mid
+
+                        mid : Rgb
+                        mid =
+                            setCoordinate left midPlaneCoordinate right axis
+
+                        midPlaneCoordinate : Float
+                        midPlaneCoordinate =
+                            List.Extra.getAt mPlane criticalPlanes
+                                |> Maybe.withDefault 0
+
+                        mPlane : Int
+                        mPlane =
+                            floor ((toFloat lPlane + toFloat rPlane) / 2)
+                    in
+                    if areInCyclicOrder leftHue targetHue midHue then
+                        loop axis
+                            (i + 1)
+                            { left = left
+                            , leftHue = leftHue
+                            , lPlane = lPlane
+                            , right = mid
+                            , rPlane = mPlane
+                            }
+
+                    else
+                        loop axis
+                            (i + 1)
+                            { left = mid
+                            , leftHue = midHue
+                            , lPlane = mPlane
+                            , right = right
+                            , rPlane = rPlane
+                            }
 
             else
                 ( left, leftHue, right )
@@ -427,9 +458,11 @@ bisectToLimit y targetHue =
 inverseChromaticAdaptation : Float -> Float
 inverseChromaticAdaptation adapted =
     let
+        adaptedAbs : Float
         adaptedAbs =
             abs adapted
 
+        base : Float
         base =
             max 0 (27.13 * adaptedAbs / (400.0 - adaptedAbs))
     in
@@ -449,30 +482,48 @@ findResultByJ :
             }
 findResultByJ hueRadians chroma y =
     let
+        viewingConditions : Cam16.ViewingConditions
         viewingConditions =
             defaultViewingConditions
 
+        tInnerCoeff : Float
         tInnerCoeff =
             1
                 / ((1.64 - (0.29 ^ viewingConditions.n)) ^ 0.73)
 
+        eHue : Float
         eHue =
             0.25 * (cos (hueRadians + 2) + 3.8)
 
+        p1 : Float
         p1 =
             eHue * (50000 / 13) * viewingConditions.nc * viewingConditions.ncb
 
+        hSin : Float
         hSin =
             sin hueRadians
 
+        hCos : Float
         hCos =
             cos hueRadians
 
+        go :
+            number
+            -> Float
+            ->
+                Maybe
+                    { red : Float
+                    , green : Float
+                    , blue : Float
+                    , alpha : Float
+                    }
         go iterationRound j =
             let
+                jNormalized : Float
                 jNormalized =
                     j / 100
 
+                alpha : Float
                 alpha =
                     if chroma == 0 || j == 0 then
                         0
@@ -480,59 +531,75 @@ findResultByJ hueRadians chroma y =
                     else
                         chroma / sqrt jNormalized
 
+                t : Float
                 t =
                     (alpha * tInnerCoeff) ^ (1 / 0.9)
 
+                ac : Float
                 ac =
                     viewingConditions.aw
                         * (jNormalized ^ (1.0 / viewingConditions.c / viewingConditions.z))
 
+                p2 : Float
                 p2 =
                     ac / viewingConditions.nbb
 
+                gamma : Float
                 gamma =
                     (23 * (p2 + 0.305) * t)
                         / (23 * p1 + 11 * t * hCos + 108 * t * hSin)
 
+                a : Float
                 a =
                     gamma * hCos
 
+                b : Float
                 b =
                     gamma * hSin
 
+                rA : Float
                 rA =
                     (460 * p2 + 451 * a + 288 * b) / 1403
 
+                gA : Float
                 gA =
                     (460 * p2 - 891 * a - 261 * b) / 1403
 
+                bA : Float
                 bA =
                     (460 * p2 - 220 * a - 6300 * b) / 1403
 
+                rCScaled : Float
                 rCScaled =
                     inverseChromaticAdaptation rA
 
+                gCScaled : Float
                 gCScaled =
                     inverseChromaticAdaptation gA
 
+                bCScaled : Float
                 bCScaled =
                     inverseChromaticAdaptation bA
 
+                linR : Float
                 linR =
                     (rCScaled * 1373.2198709594231)
                         + (gCScaled * -1100.4251190754821)
                         + (bCScaled * -7.278681089101213)
 
+                linG : Float
                 linG =
                     (rCScaled * -271.815969077903)
                         + (gCScaled * 559.6580465940733)
                         + (bCScaled * -32.46047482791194)
 
+                linB : Float
                 linB =
                     (rCScaled * 1.9622899599665666)
                         + (gCScaled * -57.173814538844006)
                         + (bCScaled * 308.7233197812385)
 
+                fnj : Float
                 fnj =
                     yFromLinR * linR + yFromLinG * linG + yFromLinB * linB
             in
