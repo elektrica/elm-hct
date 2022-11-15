@@ -9,7 +9,7 @@ module Hct exposing (toRgb, fromRgb)
 import Basics.Extra exposing (fractionalModBy)
 import Cam16 exposing (Cam16, defaultViewingConditions)
 import List.Extra
-import Utils exposing (Rgb, argbFromLinrgb, delinearized, lstarFromColor, sanitizeDegrees, signum, yFromLstar)
+import Utils exposing (Rgb, delinearized, lstarFromColor, rgbFromLinrgb, sanitizeAlpha, sanitizeDegrees, signum, yFromLstar)
 
 
 {-| Convert HCT representation of a color in default viewing conditions to RGB.
@@ -19,12 +19,14 @@ import Utils exposing (Rgb, argbFromLinrgb, delinearized, lstarFromColor, saniti
     may be lower than the requested chroma. Chroma has a different maximum for
     any given hue and tone.
   - **tone**: 0 <= tone <= 100; invalid values are corrected.
+  - **alpha**: 0 <= alpha <= 1; invalid values are corrected.
 
 -}
 toRgb :
     { hue : Float
     , chroma : Float
     , tone : Float
+    , alpha : Float
     }
     ->
         { red : Float
@@ -32,8 +34,12 @@ toRgb :
         , blue : Float
         , alpha : Float
         }
-toRgb { hue, chroma, tone } =
+toRgb { hue, chroma, tone, alpha } =
     let
+        correctedAlpha : Float
+        correctedAlpha =
+            sanitizeAlpha alpha
+
         lstar : Float
         lstar =
             tone
@@ -51,7 +57,7 @@ toRgb { hue, chroma, tone } =
         { red = component
         , green = component
         , blue = component
-        , alpha = 1
+        , alpha = correctedAlpha
         }
 
     else
@@ -66,21 +72,39 @@ toRgb { hue, chroma, tone } =
         in
         case findResultByJ hueRadians chroma y of
             Just exactAnswer ->
-                exactAnswer
+                { red = exactAnswer.red
+                , green = exactAnswer.green
+                , blue = exactAnswer.blue
+                , alpha = correctedAlpha
+                }
 
             Nothing ->
-                bisectToLimit y hueRadians
-                    |> argbFromLinrgb
+                let
+                    rgb : Rgb
+                    rgb =
+                        bisectToLimit y hueRadians
+                            |> rgbFromLinrgb
+                in
+                { red = rgb.red
+                , green = rgb.green
+                , blue = rgb.blue
+                , alpha = correctedAlpha
+                }
 
 
 {-| Convert RGB representation of a color to HCT.
 -}
 fromRgb :
-    Rgb
+    { red : Float
+    , green : Float
+    , blue : Float
+    , alpha : Float
+    }
     ->
         { hue : Float
         , chroma : Float
         , tone : Float
+        , alpha : Float
         }
 fromRgb color =
     let
@@ -91,6 +115,7 @@ fromRgb color =
     { hue = cam.hue
     , chroma = cam.chroma
     , tone = lstarFromColor color
+    , alpha = color.alpha
     }
 
 
@@ -473,13 +498,7 @@ findResultByJ :
     Float
     -> Float
     -> Float
-    ->
-        Maybe
-            { red : Float
-            , green : Float
-            , blue : Float
-            , alpha : Float
-            }
+    -> Maybe Rgb
 findResultByJ hueRadians chroma y =
     let
         viewingConditions : Cam16.ViewingConditions
@@ -510,13 +529,7 @@ findResultByJ hueRadians chroma y =
         go :
             number
             -> Float
-            ->
-                Maybe
-                    { red : Float
-                    , green : Float
-                    , blue : Float
-                    , alpha : Float
-                    }
+            -> Maybe Rgb
         go iterationRound j =
             let
                 jNormalized : Float
@@ -612,7 +625,7 @@ findResultByJ hueRadians chroma y =
 
                 else
                     { red = linR, green = linG, blue = linB }
-                        |> argbFromLinrgb
+                        |> rgbFromLinrgb
                         |> Just
 
             else

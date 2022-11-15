@@ -1,6 +1,6 @@
 module Cam16 exposing (Cam16, ViewingConditions, defaultViewingConditions, fromRgb)
 
-import Utils exposing (Rgb, linearized, signum, whitePointD65, yFromLstar)
+import Utils exposing (linearized, signum, whitePointD65, yFromLstar)
 
 
 type alias Cam16 =
@@ -30,7 +30,14 @@ type alias ViewingConditions =
 --
 
 
-fromRgb : Rgb -> ViewingConditions -> Cam16
+fromRgb :
+    { red : Float
+    , green : Float
+    , blue : Float
+    , alpha : Float
+    }
+    -> ViewingConditions
+    -> Cam16
 fromRgb { red, green, blue } viewingConditions =
     let
         redL : Float

@@ -1,4 +1,4 @@
-module Utils exposing (Rgb, Xyz, argbFromLinrgb, delinearized, linearized, lstarFromColor, sanitizeDegrees, signum, whitePointD65, yFromLstar)
+module Utils exposing (Rgb, Xyz, delinearized, linearized, lstarFromColor, rgbFromLinrgb, sanitizeAlpha, sanitizeDegrees, signum, whitePointD65, yFromLstar)
 
 import Basics.Extra exposing (fractionalModBy)
 
@@ -17,23 +17,21 @@ type alias Xyz =
     }
 
 
-argbFromLinrgb :
-    Rgb
-    ->
-        { red : Float
-        , green : Float
-        , blue : Float
-        , alpha : Float
-        }
-argbFromLinrgb { red, green, blue } =
+rgbFromLinrgb : Rgb -> Rgb
+rgbFromLinrgb { red, green, blue } =
     { red = delinearized red
     , green = delinearized green
     , blue = delinearized blue
-    , alpha = 1
     }
 
 
-xyzFromColor : Rgb -> Xyz
+xyzFromColor :
+    { red : Float
+    , green : Float
+    , blue : Float
+    , alpha : Float
+    }
+    -> Xyz
 xyzFromColor { red, green, blue } =
     let
         r : Float
@@ -54,7 +52,13 @@ xyzFromColor { red, green, blue } =
     }
 
 
-lstarFromColor : Rgb -> Float
+lstarFromColor :
+    { red : Float
+    , green : Float
+    , blue : Float
+    , alpha : Float
+    }
+    -> Float
 lstarFromColor color =
     let
         { y } =
@@ -165,6 +169,20 @@ sanitizeDegrees degrees =
     in
     if degrees < 0 then
         sanitized + 360
+
+    else
+        sanitized
+
+
+sanitizeAlpha : Float -> Float
+sanitizeAlpha alpha =
+    let
+        sanitized : Float
+        sanitized =
+            fractionalModBy 1 alpha
+    in
+    if alpha < 0 then
+        sanitized + 1
 
     else
         sanitized
