@@ -188,16 +188,9 @@ sanitizeDegrees degrees =
 
 sanitizeAlpha : Float -> Float
 sanitizeAlpha alpha =
-    let
-        sanitized : Float
-        sanitized =
-            fractionalModBy 1 alpha
-    in
-    if alpha < 0 then
-        sanitized + 1
-
-    else
-        sanitized
+    alpha
+        |> max 0
+        |> min 1
 
 
 matrixMultiply :
