@@ -292,44 +292,48 @@ bisectToSegment y targetHue =
         |> List.foldl
             (\n state ->
                 let
+                    mid : Rgb
                     mid =
                         nthVertex y n
-
-                    midHue =
-                        hueOf mid
                 in
                 if mid.red < 0 then
                     state
 
-                else if not state.initialized then
-                    { state
-                        | left = mid
-                        , right = mid
-                        , leftHue = midHue
-                        , rightHue = midHue
-                        , initialized = True
-                    }
-
-                else if
-                    state.uncut
-                        || areInCyclicOrder state.leftHue midHue state.rightHue
-                then
-                    if areInCyclicOrder state.leftHue targetHue midHue then
-                        { state
-                            | right = mid
-                            , rightHue = midHue
-                            , uncut = False
-                        }
-
-                    else
+                else
+                    let
+                        midHue : Float
+                        midHue =
+                            hueOf mid
+                    in
+                    if not state.initialized then
                         { state
                             | left = mid
+                            , right = mid
                             , leftHue = midHue
-                            , uncut = False
+                            , rightHue = midHue
+                            , initialized = True
                         }
 
-                else
-                    state
+                    else if
+                        state.uncut
+                            || areInCyclicOrder state.leftHue midHue state.rightHue
+                    then
+                        if areInCyclicOrder state.leftHue targetHue midHue then
+                            { state
+                                | right = mid
+                                , rightHue = midHue
+                                , uncut = False
+                            }
+
+                        else
+                            { state
+                                | left = mid
+                                , leftHue = midHue
+                                , uncut = False
+                            }
+
+                    else
+                        state
             )
             (let
                 invalidVertex : Rgb

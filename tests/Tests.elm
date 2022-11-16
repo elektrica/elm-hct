@@ -1,6 +1,6 @@
-module Tests exposing (..)
+module Tests exposing (fromRgb, toRgb, tone)
 
-import Expect exposing (Expectation, FloatingPointTolerance(..))
+import Expect exposing (FloatingPointTolerance(..))
 import Hct
 import Test exposing (Test)
 import Utils
