@@ -9,7 +9,7 @@ module Hct exposing (toRgb, fromRgb)
 import Basics.Extra exposing (fractionalModBy)
 import Cam16 exposing (Cam16, defaultViewingConditions)
 import List.Extra
-import Utils exposing (Rgb, delinearized, lstarFromColor, rgbFromLinrgb, sanitizeAlpha, sanitizeDegrees, signum, yFromLstar)
+import Utils exposing (Rgb, delinearized, lstarFromColor, matrixMultiply, rgbFromLinrgb, sanitizeAlpha, sanitizeDegrees, signum, yFromLstar)
 
 
 {-| Convert HCT representation of a color in default viewing conditions to RGB.
@@ -123,6 +123,27 @@ fromRgb color =
 --
 
 
+scaledDiscountFromLinrgbMatrix :
+    ( ( Float, Float, Float )
+    , ( Float, Float, Float )
+    , ( Float, Float, Float )
+    )
+scaledDiscountFromLinrgbMatrix =
+    ( ( 0.001200833568784504
+      , 0.002389694492170889
+      , 0.0002795742885861124
+      )
+    , ( 0.0005891086651375999
+      , 0.0029785502573438758
+      , 0.0003270666104008398
+      )
+    , ( 0.00010146692491640572
+      , 0.0005364214359186694
+      , 0.0032979401770712076
+      )
+    )
+
+
 yFromLinR : Float
 yFromLinR =
     0.2126
@@ -181,19 +202,13 @@ hueOf linrgb =
     let
         scaledDiscount : { r : Float, g : Float, b : Float }
         scaledDiscount =
-            { r =
-                (linrgb.red * 0.001200833568784504)
-                    + (linrgb.green * 0.002389694492170889)
-                    + (linrgb.blue * 0.0002795742885861124)
-            , g =
-                (linrgb.red * 0.0005891086651375999)
-                    + (linrgb.green * 0.0029785502573438758)
-                    + (linrgb.blue * 0.0003270666104008398)
-            , b =
-                (linrgb.red * 0.00010146692491640572)
-                    + (linrgb.green * 0.0005364214359186694)
-                    + (linrgb.blue * 0.0032979401770712076)
-            }
+            let
+                ( r_, g_, b_ ) =
+                    matrixMultiply
+                        ( linrgb.red, linrgb.green, linrgb.blue )
+                        scaledDiscountFromLinrgbMatrix
+            in
+            { r = r_, g = g_, b = b_ }
 
         rA : Float
         rA =
@@ -262,8 +277,89 @@ isBounded x =
     0 <= x && x <= 100
 
 
-edgePoints : Float -> List Rgb
-edgePoints y =
+{-| Finds the segment containing the desired color.
+
+Returns a list of two sets of linear RGB coordinates, each corresponding to an
+endpoint of the segment containing the desired color.
+
+  - **y**: The Y value of the color.
+  - **targetHue**: The hue of the color.
+
+-}
+bisectToSegment : Float -> Float -> ( Rgb, Rgb )
+bisectToSegment y targetHue =
+    List.range 0 11
+        |> List.foldl
+            (\n state ->
+                let
+                    mid =
+                        nthVertex y n
+
+                    midHue =
+                        hueOf mid
+                in
+                if mid.red < 0 then
+                    state
+
+                else if not state.initialized then
+                    { state
+                        | left = mid
+                        , right = mid
+                        , leftHue = midHue
+                        , rightHue = midHue
+                        , initialized = True
+                    }
+
+                else if
+                    state.uncut
+                        || areInCyclicOrder state.leftHue midHue state.rightHue
+                then
+                    if areInCyclicOrder state.leftHue targetHue midHue then
+                        { state
+                            | right = mid
+                            , rightHue = midHue
+                            , uncut = False
+                        }
+
+                    else
+                        { state
+                            | left = mid
+                            , leftHue = midHue
+                            , uncut = False
+                        }
+
+                else
+                    state
+            )
+            (let
+                invalidVertex : Rgb
+                invalidVertex =
+                    { red = -1
+                    , green = -1
+                    , blue = -1
+                    }
+             in
+             { left = invalidVertex
+             , right = invalidVertex
+             , leftHue = 0
+             , rightHue = 0
+             , initialized = False
+             , uncut = True
+             }
+            )
+        |> (\{ left, right } -> ( left, right ))
+
+
+{-| Returns the nth possible vertex of the polygonal intersection of the y plane
+and the RGB cube, in linear RGB coordinates, if it exists. If this possible
+vertex lies outside of the cube, [-1.0, -1.0, -1.0] is returned.
+
+  - **y**: The Y value of the plane.
+  - **n**: The zero-based index of the point. 0 <= n <= 11.
+
+-}
+nthVertex : Float -> Int -> Rgb
+nthVertex y n =
     let
         kR : Float
         kR =
@@ -277,80 +373,97 @@ edgePoints y =
         kB =
             yFromLinB
 
-        points : List ( Float, Float, Float )
-        points =
-            [ ( y / kR, 0, 0 )
-            , ( (y - 100 * kB) / kR, 0, 100 )
-            , ( (y - 100 * kG) / kR, 100, 0 )
-            , ( (y - 100 * kB - 100 * kG) / kR, 100, 100 )
-            , ( 0, y / kG, 0 )
-            , ( 100, (y - 100 * kR) / kG, 0 )
-            , ( 0, (y - 100 * kB) / kG, 100 )
-            , ( 100, (y - 100 * kR - 100 * kB) / kG, 100 )
-            , ( 0, 0, y / kB )
-            , ( 100, 0, (y - 100 * kR) / kB )
-            , ( 0, 100, (y - 100 * kG) / kB )
-            , ( 100, 100, (y - 100 * kR - 100 * kG) / kB )
-            ]
-    in
-    points
-        |> List.filterMap
-            (\( r, g, b ) ->
-                if isBounded r && isBounded g && isBounded b then
-                    Just { red = r, green = g, blue = b }
+        coordA : Float
+        coordA =
+            if modBy 4 n <= 1 then
+                0
 
-                else
-                    Nothing
-            )
+            else
+                100
 
+        coordB : Float
+        coordB =
+            if modBy 2 n == 0 then
+                0
 
-bisectToSegment : Float -> Float -> ( Rgb, Rgb )
-bisectToSegment y targetHue =
-    let
-        vertices : List Rgb
-        vertices =
-            edgePoints y
+            else
+                100
 
-        defaultRGB : Rgb
-        defaultRGB =
-            { red = 0
-            , green = 0
-            , blue = 0
+        invalidRgb : Rgb
+        invalidRgb =
+            { red = -1
+            , green = -1
+            , blue = -1
             }
     in
-    vertices
-        |> List.foldl
-            (\mid ( uncut, leftRight ) ->
-                case leftRight of
-                    Just ( left, right ) ->
-                        let
-                            leftHue : Float
-                            leftHue =
-                                hueOf left
+    if n < 4 then
+        let
+            g : Float
+            g =
+                coordA
 
-                            midHue : Float
-                            midHue =
-                                hueOf mid
+            b : Float
+            b =
+                coordB
 
-                            rightHue : Float
-                            rightHue =
-                                hueOf right
-                        in
-                        if uncut || areInCyclicOrder leftHue midHue rightHue then
-                            if areInCyclicOrder leftHue targetHue midHue then
-                                ( False, Just ( left, mid ) )
+            r : Float
+            r =
+                (y - g * kG - b * kB) / kR
+        in
+        if isBounded r then
+            { red = r
+            , green = g
+            , blue = b
+            }
 
-                            else
-                                ( False, Just ( mid, right ) )
+        else
+            invalidRgb
 
-                        else
-                            ( uncut, Just ( left, right ) )
+    else if n < 8 then
+        let
+            b : Float
+            b =
+                coordA
 
-                    Nothing ->
-                        ( uncut, Just ( mid, mid ) )
-            )
-            ( True, Nothing )
-        |> (\( _, leftRight ) -> leftRight |> Maybe.withDefault ( defaultRGB, defaultRGB ))
+            r : Float
+            r =
+                coordB
+
+            g : Float
+            g =
+                (y - r * kR - b * kB) / kG
+        in
+        if isBounded g then
+            { red = r
+            , green = g
+            , blue = b
+            }
+
+        else
+            invalidRgb
+
+    else
+        let
+            r : Float
+            r =
+                coordA
+
+            g : Float
+            g =
+                coordB
+
+            b : Float
+            b =
+                (y - r * kR - g * kG) / kB
+        in
+        if isBounded b then
+            { red = r
+            , green = g
+            , blue = b
+            }
+
+        else
+            invalidRgb
 
 
 midpoint : ( Rgb, Rgb ) -> Rgb

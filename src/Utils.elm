@@ -1,4 +1,4 @@
-module Utils exposing (Rgb, Xyz, delinearized, linearized, lstarFromColor, rgbFromLinrgb, sanitizeAlpha, sanitizeDegrees, signum, whitePointD65, yFromLstar)
+module Utils exposing (Rgb, Xyz, delinearized, linearized, lstarFromColor, matrixMultiply, rgbFromLinrgb, sanitizeAlpha, sanitizeDegrees, signum, whitePointD65, yFromLstar)
 
 import Basics.Extra exposing (fractionalModBy)
 
@@ -15,6 +15,18 @@ type alias Xyz =
     , y : Float
     , z : Float
     }
+
+
+srgbToXyzMatrix :
+    ( ( Float, Float, Float )
+    , ( Float, Float, Float )
+    , ( Float, Float, Float )
+    )
+srgbToXyzMatrix =
+    ( ( 0.41233895, 0.35762064, 0.18051042 )
+    , ( 0.2126, 0.7152, 0.0722 )
+    , ( 0.01932141, 0.11916382, 0.95034478 )
+    )
 
 
 rgbFromLinrgb : Rgb -> Rgb
@@ -45,11 +57,11 @@ xyzFromColor { red, green, blue } =
         b : Float
         b =
             linearized blue
+
+        ( x, y, z ) =
+            matrixMultiply ( r, g, b ) srgbToXyzMatrix
     in
-    { x = (r * 0.41233895) + (r * 0.2126) + (r * 0.01932141)
-    , y = (g * 0.35762064) + (g * 0.7152) + (g * 0.11916382)
-    , z = (b * 0.18051042) + (b * 0.0722) + (b * 0.95034478)
-    }
+    { x = x, y = y, z = z }
 
 
 lstarFromColor :
@@ -186,3 +198,28 @@ sanitizeAlpha alpha =
 
     else
         sanitized
+
+
+matrixMultiply :
+    ( number, number, number )
+    ->
+        ( ( number, number, number )
+        , ( number, number, number )
+        , ( number, number, number )
+        )
+    -> ( number, number, number )
+matrixMultiply ( row0, row1, row2 ) ( matrix0, matrix1, matrix2 ) =
+    let
+        ( matrix00, matrix01, matrix02 ) =
+            matrix0
+
+        ( matrix10, matrix11, matrix12 ) =
+            matrix1
+
+        ( matrix20, matrix21, matrix22 ) =
+            matrix2
+    in
+    ( row0 * matrix00 + row1 * matrix01 + row2 * matrix02
+    , row0 * matrix10 + row1 * matrix11 + row2 * matrix12
+    , row0 * matrix20 + row1 * matrix21 + row2 * matrix22
+    )
