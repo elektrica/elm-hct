@@ -1,4 +1,4 @@
-# elm-cam16
+# elm-hct
 
 HCT, hue, chroma, and tone. A color system that provides a perceptually accurate
 color measurement system. Built using
