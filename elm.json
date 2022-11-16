@@ -13,5 +13,9 @@
         "elm-community/basics-extra": "4.1.0 <= v < 5.0.0",
         "elm-community/list-extra": "8.5.2 <= v < 9.0.0"
     },
-    "test-dependencies": {}
+    "test-dependencies": {
+        "elm-explorations/test": "2.0.0 <= v < 3.0.0",
+        "avh4/elm-color": "1.0.0 <= v < 2.0.0",
+        "noahzgordon/elm-color-extra": "1.0.2 <= v < 2.0.0"
+    }
 }

@@ -1,6 +1,7 @@
 {
   "scripts": {
     "review": "elm-review",
+    "test": "elm-test-rs",
     "postinstall": "elm-tooling install"
   },
   "devDependencies": {
