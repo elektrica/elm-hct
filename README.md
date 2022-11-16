@@ -17,6 +17,7 @@ myHct :
     { hue : Float
     , chroma : Float
     , tone : Float
+    , alpha : Float
     }
 myHct =
     Hct.fromRgb
@@ -38,5 +39,6 @@ myRgb =
         { hue = 270
         , chroma = 80
         , tone = 70
+        , alpha = 1
         }
 ```
