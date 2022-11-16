@@ -3,7 +3,7 @@
     "name": "elektrica/elm-hct",
     "summary": "A color system built using CAM16 hue and chroma, and L* from L*a*b*.",
     "license": "MIT",
-    "version": "2.0.3",
+    "version": "2.0.4",
     "exposed-modules": [
         "Hct"
     ],
